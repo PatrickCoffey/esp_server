@@ -10,7 +10,7 @@
 #include <ESP8266WiFi.h>
 #include <WiFiClient.h>
 #include <ESP8266WebServer.h>
-// #include <ESP8266mDNS.h>
+#include <ESP8266mDNS.h>
 #include <FS.h>
 
 /* if self_host is true then it will run its own web server
@@ -23,9 +23,6 @@ const char *password = "esp8266esp8266";
 
 ESP8266WebServer server ( 80 );
 
-void root() {
-  String html = "";
-}
 
 String getContentType(String filename) {
   if (server.hasArg("download")) return "application/octet-stream";
@@ -48,8 +45,8 @@ String getContentType(String filename) {
 bool handleFileRead(String path) {
   Serial.print ("handling files read on: ");
   Serial.println (path);
-  Serial.print ("file exists: ");
-  Serial.println (SPIFFS.exists(path));
+  //Serial.print ("file exists: ");
+  //Serial.println (SPIFFS.exists(path));
   if (path.endsWith("/"))
     path += "index.htm";
   String contentType = getContentType(path);
@@ -59,10 +56,10 @@ bool handleFileRead(String path) {
     if (!file) {
       Serial.println("file open failed");
     }
-    Serial.println ("streaming...");
+    //Serial.println ("streaming...");
     size_t sent = server.streamFile(file, contentType);
     //DBG_OUTPUT_PORT.printf("File %s exist\n", file.name());
-    Serial.printf ("File %s exist\n", file.name());
+    //Serial.printf ("File %s exist\n", file.name());
     file.close();
     return true;
   }
@@ -70,8 +67,10 @@ bool handleFileRead(String path) {
 }
 
 void init_wifi( void ) {
+  Serial.println ( "WIFI Setup" );
+  Serial.println ( "----------" );
   if (self_host) {
-    Serial.print("Configuring access point...");
+    Serial.println("Configuring access point...");
     Serial.print("my ssid: ");
     Serial.println(ssid);
     Serial.print("my passwd: ");
@@ -97,39 +96,76 @@ void init_wifi( void ) {
   }
 }
 
+void fs_info ( void ) {
+  FSInfo fs_info;
+  SPIFFS.info(fs_info);
+  Serial.println ( "" );
+  Serial.println ( "SPIFFS Info" );
+  Serial.println ( "-----------" );
+  Serial.print ( "total bytes: " );
+  Serial.print ( fs_info.totalBytes );
+  Serial.println ( " bytes" );
+  Serial.print ( "used bytes: " );
+  Serial.print ( fs_info.usedBytes );
+  Serial.println ( " bytes" );
+  Serial.print ( "bytes left: " );
+  Serial.print ( fs_info.totalBytes - fs_info.usedBytes );
+  Serial.println ( " bytes" );
+  Serial.print ( "block size: " );
+  Serial.print ( fs_info.blockSize );
+  Serial.println ( " bytes" );
+  Serial.print ( "page size: " );
+  Serial.print ( fs_info.pageSize );
+  Serial.println ( " bytes" );
+  Serial.print ( "max open files: " );
+  Serial.print ( fs_info.maxOpenFiles );
+  Serial.println ( " files" );
+  Serial.print ( "max path length: " );
+  Serial.print ( fs_info.maxPathLength );
+  Serial.println ( " chars" );
+  Serial.println ( "" );
+}
+
+void fs_list ( void ) {
+  Serial.println ( "File Listing" );
+  Serial.println ( "------------" );
+  Dir dir = SPIFFS.openDir("/");
+  while (dir.next()) {
+    Serial.print(dir.fileName());
+    Serial.print( " " );
+    File f = dir.openFile("r");
+    Serial.print(f.size());
+    Serial.println ( " bytes" );
+  }
+}
+
 void setup ( void ) {
   Serial.begin ( 115200 );
-  Serial.print ("self hosting mode: ");
-  Serial.println (self_host);
+  Serial.println ( "" );
+  Serial.println ( "" );
 
   init_wifi();
 
   //File System Init
   SPIFFS.begin();
+  fs_info();
+  fs_list();
 
-  Serial.println ("opening directory /");
-  Dir dir = SPIFFS.openDir("/");
-  while (dir.next()) {
-    Serial.println(dir.fileName());
-    File f = dir.openFile("r");
-    Serial.println(f.size());
+  if ( MDNS.begin ( "esp8266" ) ) {
+    Serial.println ( "MDNS responder started" );
   }
 
-//  if ( MDNS.begin ( "esp8266" ) ) {
-//    Serial.println ( "MDNS responder started" );
-//  }
-
-  server.on ( "/", root );
   server.onNotFound( []() {
     server.sendHeader("Connection", "close");
     server.sendHeader("Access-Control-Allow-Origin", "*");
     Serial.print ( "checking for: " );
     Serial.println ( server.uri() );
     if (!handleFileRead(server.uri())) {
-      server.send(404, "text/plain", "FileNotFound");
+      server.send(404, "text/html", "<h1>Error: 404</h1>\n\n<h2>File Not Found!</h2>");
     } else {
       Serial.print("Page was served!");
     };
+    Serial.println ( "" );
   });
   server.begin();
   Serial.println ( "HTTP server started" );
