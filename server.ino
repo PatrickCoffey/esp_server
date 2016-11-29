@@ -10,13 +10,16 @@
 #include <ESP8266WiFi.h>
 #include <WiFiClient.h>
 #include <ESP8266WebServer.h>
-#include <ESP8266mDNS.h>
+// #include <ESP8266mDNS.h>
 #include <FS.h>
 
-#define DEBUG_WEBSERVER
-
-const char *ssid = "your_ssid";
-const char *password = "your_pwd";
+/* if self_host is true then it will run its own web server
+ * if it is false it will join a wifi netowrk using 
+ * the supplied credentials
+*/
+const bool self_host = true;
+const char *ssid = "esp8266";
+const char *password = "esp8266esp8266";
 
 ESP8266WebServer server ( 80 );
 
@@ -66,22 +69,40 @@ bool handleFileRead(String path) {
   return false;
 }
 
+void init_wifi( void ) {
+  if (self_host) {
+    Serial.print("Configuring access point...");
+    Serial.print("my ssid: ");
+    Serial.println(ssid);
+    Serial.print("my passwd: ");
+    Serial.println(password);
+    WiFi.softAP(ssid, password);
+    IPAddress myIP = WiFi.softAPIP();
+    Serial.print("AP IP address: ");
+    Serial.println(myIP);
+    Serial.println ( "" );
+  } else {
+    WiFi.begin ( ssid, password );
+    Serial.println ( "" );
+    // Wait for connection
+    while ( WiFi.status() != WL_CONNECTED ) {
+      delay ( 500 );
+      Serial.print ( "." );
+    }
+    Serial.print ( "Connected to " );
+    Serial.println ( ssid );
+    Serial.print ( "Client IP address: " );
+    Serial.println ( WiFi.localIP() );
+    Serial.println ( "" );
+  }
+}
+
 void setup ( void ) {
   Serial.begin ( 115200 );
-  WiFi.begin ( ssid, password );
-  Serial.println ( "" );
+  Serial.print ("self hosting mode: ");
+  Serial.println (self_host);
 
-  // Wait for connection
-  while ( WiFi.status() != WL_CONNECTED ) {
-    delay ( 500 );
-    Serial.print ( "." );
-  }
-
-  Serial.println ( "" );
-  Serial.print ( "Connected to " );
-  Serial.println ( ssid );
-  Serial.print ( "IP address: " );
-  Serial.println ( WiFi.localIP() );
+  init_wifi();
 
   //File System Init
   SPIFFS.begin();
@@ -98,10 +119,6 @@ void setup ( void ) {
 //    Serial.println ( "MDNS responder started" );
 //  }
 
-//  server.on ( "/inline", []() {
-//    server.send ( 200, "text/plain", "this works as well" );
-//  } );
-
   server.on ( "/", root );
   server.onNotFound( []() {
     server.sendHeader("Connection", "close");
@@ -111,10 +128,9 @@ void setup ( void ) {
     if (!handleFileRead(server.uri())) {
       server.send(404, "text/plain", "FileNotFound");
     } else {
-      //handleFileRead(server.uri());
+      Serial.print("Page was served!");
     };
   });
-//  server.onNotFound ( handleNotFound );
   server.begin();
   Serial.println ( "HTTP server started" );
 }
