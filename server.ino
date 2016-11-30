@@ -10,7 +10,7 @@
 #include <ESP8266WiFi.h>
 #include <WiFiClient.h>
 #include <ESP8266WebServer.h>
-#include <ESP8266mDNS.h>
+// #include <ESP8266mDNS.h>
 #include <FS.h>
 
 /* if self_host is true then it will run its own web server
@@ -36,6 +36,8 @@ String getContentType(String filename) {
   else if (filename.endsWith(".jpg")) return "image/jpeg";
   else if (filename.endsWith(".ico")) return "image/x-icon";
   else if (filename.endsWith(".xml")) return "text/xml";
+  else if (filename.endsWith(".woff")) return "application/font-woff";
+  else if (filename.endsWith(".woff2")) return "application/font-woff2";
   else if (filename.endsWith(".pdf")) return "application/x-pdf";
   else if (filename.endsWith(".zip")) return "application/x-zip";
   else if (filename.endsWith(".gz")) return "application/x-gzip";
@@ -76,12 +78,14 @@ void init_wifi( void ) {
     Serial.print("my passwd: ");
     Serial.println(password);
     WiFi.softAP(ssid, password);
+    WiFi.mode(WIFI_AP);
     IPAddress myIP = WiFi.softAPIP();
     Serial.print("AP IP address: ");
     Serial.println(myIP);
     Serial.println ( "" );
   } else {
     WiFi.begin ( ssid, password );
+    WiFi.mode(WIFI_STA);
     Serial.println ( "" );
     // Wait for connection
     while ( WiFi.status() != WL_CONNECTED ) {
@@ -151,9 +155,9 @@ void setup ( void ) {
   fs_info();
   fs_list();
 
-  if ( MDNS.begin ( "esp8266" ) ) {
-    Serial.println ( "MDNS responder started" );
-  }
+  //if ( MDNS.begin ( "esp8266" ) ) {
+  //  Serial.println ( "MDNS responder started" );
+  //}
 
   server.onNotFound( []() {
     server.sendHeader("Connection", "close");
